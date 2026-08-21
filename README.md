@@ -43,6 +43,7 @@ reads a bundled ~131,000‑city SQLite database using [`sqlite3`](https://pub.de
 - [Hijri calendar conversion](#hijri-calendar-conversion)
 - [Qibla](#qibla)
 - [Geocoding](#geocoding)
+- [City directory (pickers & reverse geocoding)](#city-directory-pickers--reverse-geocoding)
 - [Localization](#localization)
 - [aladhan-compatible JSON](#aladhan-compatible-json)
 - [Timezones & DST](#timezones--dst)
@@ -454,6 +455,38 @@ final service = PrayerTimesService(geocoder: MyGeocoder());
 ```
 
 `country` accepts an ISO‑3166 alpha‑2 code (`"GB"`) or a common name (`"United Kingdom"`).
+
+## City directory (pickers & reverse geocoding)
+
+`Geocoder` answers *"which city is this text?"*. `CityDirectory` answers the
+questions a location-picker asks instead, reading English and Arabic names
+together so either locale renders without a second lookup:
+
+```dart
+final directory = await loadBundledCityDirectory();
+
+directory.countries(query: 'مصر');              // -> [CountryInfo(Egypt, EG)]
+directory.citiesInCountry(65, limit: 50);       // most prominent first, paged
+directory.searchCities(query: 'Cairo');         // matches either language
+directory.nearestCity(30.06263, 31.24967);      // -> CityEntry(Cairo, EG)
+directory.timeZonesForCountry(65);              // -> [Africa/Cairo + Arabic label]
+```
+
+Two behaviours are worth knowing, because the naive query gets both wrong:
+
+- **`nearestCity` is not a plain proximity sort.** The database records
+  neighbourhoods alongside the cities containing them, so the closest row to
+  central Cairo is a neighbourhood, not Cairo. Distance is weighted by
+  settlement prominence, letting a nearby capital or administrative seat
+  outrank a marginally closer suburb.
+- **`timeZonesForCountry` filters border noise.** A handful of Egyptian border
+  towns carry `Asia/Jerusalem`, which would present Egypt as a four-zone
+  country. A zone is offered only when it covers at least 0.5% of the country's
+  populated places.
+
+The database keys countries by an integer `country_id`; `kCountryIdToIso` and
+`kIsoToCountryId` are exported for callers that persist or branch on ISO codes.
+
 
 ## Localization
 

@@ -28,6 +28,8 @@ export 'src/domain/value_objects/tune.dart';
 // Models.
 export 'src/domain/models/calculation_meta.dart';
 export 'src/domain/models/city.dart';
+export 'src/domain/models/city_entry.dart';
+export 'src/domain/models/country_info.dart';
 export 'src/domain/models/date_info.dart';
 export 'src/domain/models/gregorian_date.dart';
 export 'src/domain/models/hijri_date.dart';
@@ -35,6 +37,7 @@ export 'src/domain/models/next_prayer.dart';
 export 'src/domain/models/prayer_result.dart';
 export 'src/domain/models/prayer_time.dart';
 export 'src/domain/models/qibla_direction.dart';
+export 'src/domain/models/time_zone_info.dart';
 
 // Ports (implement these to customize behaviour).
 export 'src/domain/ports/geocoder.dart';
@@ -55,8 +58,14 @@ export 'src/infrastructure/calendar/hijri_converter_factory.dart';
 export 'src/infrastructure/config/location_defaults.dart';
 export 'src/infrastructure/geocoding/bundled_city_geocoder.dart'
     show BundledCityGeocoder;
+export 'src/infrastructure/geocoding/city_directory.dart';
 export 'src/infrastructure/geocoding/data/city_dataset.dart'
     show CityRecord, kCityDataset;
+// The generated `country_id` <-> ISO 3166-1 alpha-2 mapping. The bundled
+// database keys countries by integer id; callers that persist or branch on a
+// country need the ISO code, so both directions are public.
+export 'src/infrastructure/geocoding/data/country_iso_map.dart'
+    show kCountryIdToIso, kIsoToCountryId;
 // The bundled 138k-city SQLite geocoder (sqlite3, no Flutter binding needed to
 // open a file). For loading the bundled asset in a Flutter app, import
 // `islamic_kit_plus_flutter.dart`.

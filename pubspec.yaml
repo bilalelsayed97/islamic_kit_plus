@@ -4,7 +4,7 @@ description: >-
   (4 methods), qibla, calendars and an offline city geocoder (bundled 138k-city
   SQLite database). A pure-Dart port of the islamic-network PHP stack with an
   aladhan-compatible JSON model and English/Arabic localization.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/bilalelsayed97/islamic_kit_plus
 issue_tracker: https://github.com/bilalelsayed97/islamic_kit_plus/issues
 
