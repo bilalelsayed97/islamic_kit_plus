@@ -27,4 +27,4 @@ dev_dependencies:
 
 flutter:
   assets:
-    - assets/NewCountries.sqlite
+    - assets/prayer_times.db

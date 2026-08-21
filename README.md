@@ -23,7 +23,7 @@ v2.3 algorithm, the Moonsighting Committee twilight, the Hijri calendar library
 
 The calculation core (prayer times, Hijri calendar, qibla, calendars) depends on
 **only `dart:core` and `dart:math`**. The optional by‑city / by‑address geocoder
-reads a bundled ~138,000‑city SQLite database using [`sqlite3`](https://pub.dev/packages/sqlite3).
+reads a bundled ~131,000‑city SQLite database using [`sqlite3`](https://pub.dev/packages/sqlite3).
 
 ## Table of contents
 
@@ -410,7 +410,7 @@ your source or plug in your own.
 
 ### Option A — bundled SQLite database (recommended)
 
-Ships a ~138,000‑city database (English + Arabic names, coordinates, standard‑time
+Ships a ~131,000‑city database (English + Arabic names, coordinates, standard‑time
 offsets). Load it once in a Flutter app:
 
 ```dart
@@ -425,8 +425,12 @@ service.timingsByCity('London', country: 'GB', date: DateTime.now());
 On the Dart VM / CLI (or in tests) open it from a file path instead:
 
 ```dart
-final geocoder = SqliteCityGeocoder.openFile('path/to/NewCountries.sqlite');
+final geocoder = SqliteCityGeocoder.openFile('path/to/prayer_times.db');
 ```
+
+The `state` argument of `search` / `resolve` is ignored by this geocoder and
+`City.state` is always `null` — the bundled database has no administrative‑region
+column. `City.utcOffset` is the standard‑time offset and does not account for DST.
 
 ### Option B — curated, zero‑dependency fallback
 

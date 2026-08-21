@@ -7,11 +7,12 @@ import '../../domain/models/city.dart';
 import '../../domain/ports/geocoder.dart';
 import '../../domain/value_objects/coordinates.dart';
 import 'data/city_dataset.dart' show kCountryAliases;
+import 'data/country_iso_map.dart';
 
-/// [Geocoder] backed by the bundled `NewCountries.sqlite` (≈138k cities with
-/// English + Arabic names). Queries are synchronous (sqlite3 is an FFI API);
-/// only opening the database is asynchronous — see [openBytes] and the Flutter
-/// asset loader.
+/// [Geocoder] backed by the bundled `prayer_times.db` (≈131k populated places
+/// with English + Arabic names). Queries are synchronous (sqlite3 is an FFI
+/// API); only opening the database is asynchronous — see [openBytes] and the
+/// Flutter asset loader.
 class SqliteCityGeocoder extends Geocoder {
   SqliteCityGeocoder(this._db);
 
@@ -25,7 +26,7 @@ class SqliteCityGeocoder extends Geocoder {
   /// file (sqlite3 opens by path). Reuses the temp file across calls.
   static Future<SqliteCityGeocoder> openBytes(
     Uint8List bytes, {
-    String fileName = 'islamic_kit_plus_cities.sqlite',
+    String fileName = 'islamic_kit_plus_prayer_times.db',
   }) async {
     final file = File('${Directory.systemTemp.path}/$fileName');
     if (!file.existsSync() || file.lengthSync() != bytes.length) {
@@ -34,6 +35,11 @@ class SqliteCityGeocoder extends Geocoder {
     return SqliteCityGeocoder.openFile(file.path);
   }
 
+  /// Returns matches for [query], best first.
+  ///
+  /// [state] is accepted for interface compatibility but ignored: the bundled
+  /// database carries no administrative-region column, so [City.state] is
+  /// always `null` here.
   @override
   List<City> search(String query, {String? country, String? state}) {
     final candidates = _candidates(query);
@@ -41,36 +47,44 @@ class SqliteCityGeocoder extends Geocoder {
 
     final iso = _resolveCountry(country);
     final where = StringBuffer(
-      'CityLatitude IS NOT NULL AND (CityNameEn LIKE ? OR CityNameAr LIKE ?)',
+      "city_level LIKE 'PPL%' AND (city_name_en LIKE ? OR city_name_ar LIKE ?)",
     );
     final args = <Object?>['%${candidates.first}%', '%${candidates.first}%'];
     if (iso != null) {
-      where.write(' AND UPPER(CountryIso) = ?');
-      args.add(iso);
-    }
-    if (state != null) {
-      where.write(' AND (admin1 LIKE ? OR admin2 LIKE ?)');
-      args
-        ..add('%$state%')
-        ..add('%$state%');
+      final countryId = kIsoToCountryId[iso];
+      // An unknown country code can match nothing, mirroring the behaviour of
+      // filtering on a code that is absent from the database.
+      if (countryId == null) return const <City>[];
+      where.write(' AND country_id = ?');
+      args.add(countryId);
     }
 
     final rows = _db.select(
-      'SELECT CityNameEn, CityNameAr, CityLatitude, CityLongitude, '
-      'CityZone, CountryIso, admin1 FROM ModifiedCities WHERE $where LIMIT 200',
+      'SELECT city_name_en, city_name_ar, city_latitude, city_longitude, '
+      'city_time_zone, time_zone_id, country_id, city_level '
+      'FROM prayer_times_city_lookups WHERE $where LIMIT 200',
       args,
     );
 
-    final scored = <({City city, int score})>[];
+    final scored = <({City city, int score, int rank})>[];
     for (final row in rows) {
-      final en = (row['CityNameEn'] as String?)?.trim() ?? '';
-      final ar = (row['CityNameAr'] as String?)?.trim();
+      final en = (row['city_name_en'] as String?)?.trim() ?? '';
+      final ar = (row['city_name_ar'] as String?)?.trim();
       final score = _score(_normalize(en), candidates) ??
           (ar != null ? _score(_normalize(ar), candidates) : null);
       if (score == null) continue;
-      scored.add((city: _toCity(row, en, ar), score: score));
+      scored.add((
+        city: _toCity(row, en, ar),
+        score: score,
+        rank: _placeRank(row['city_level'] as String?),
+      ));
     }
-    scored.sort((a, b) => a.score.compareTo(b.score));
+    // Equally good name matches are broken by settlement importance, so a
+    // capital wins over a same-named village.
+    scored.sort((a, b) {
+      final byScore = a.score.compareTo(b.score);
+      return byScore != 0 ? byScore : a.rank.compareTo(b.rank);
+    });
     return <City>[for (final s in scored) s.city];
   }
 
@@ -78,19 +92,47 @@ class SqliteCityGeocoder extends Geocoder {
   void dispose() => _db.dispose();
 
   City _toCity(Row row, String en, String? ar) {
-    final zone = (row['CityZone'] as num?)?.toDouble() ?? 0;
     return City(
       name: en,
       nameAr: ar == null || ar.isEmpty ? null : ar,
-      country: (row['CountryIso'] as String?)?.toUpperCase() ?? '',
-      state: row['admin1'] as String?,
+      country: kCountryIdToIso[row['country_id'] as int?] ?? '',
+      state: null,
       coordinates: Coordinates(
-        (row['CityLatitude'] as num).toDouble(),
-        (row['CityLongitude'] as num).toDouble(),
+        (row['city_latitude'] as num).toDouble(),
+        (row['city_longitude'] as num).toDouble(),
       ),
-      utcOffset: Duration(minutes: (zone * 60).round()),
+      utcOffset: Duration(
+        minutes: _offsetMinutes(
+          row['time_zone_id'] as String?,
+          row['city_time_zone'] as num?,
+        ),
+      ),
     );
   }
+
+  /// Standard-time offset in minutes.
+  ///
+  /// `city_time_zone` holds whole hours truncated toward zero, so zones with a
+  /// half- or quarter-hour offset are resolved from their IANA id first and
+  /// only fall back to the hour column when the id is missing or unremarkable.
+  int _offsetMinutes(String? timeZoneId, num? hours) {
+    if (timeZoneId != null && timeZoneId.isNotEmpty) {
+      final minutes = kFractionalZoneOffsetMinutes[timeZoneId];
+      if (minutes != null) return minutes;
+    }
+    return ((hours ?? 0) * 60).round();
+  }
+
+  /// Orders settlement feature codes by prominence, lowest first.
+  int _placeRank(String? level) => switch (level) {
+        'PPLC' => 0, // national capital
+        'PPLA' => 1, // first-order administrative capital
+        'PPLA2' => 2,
+        'PPLA3' => 3,
+        'PPLA4' => 4,
+        'PPL' => 5,
+        _ => 6,
+      };
 
   int? _score(String name, List<String> candidates) {
     int? best;
