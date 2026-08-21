@@ -25,7 +25,42 @@ void main() {
     });
 
     test('exposes the recommended calculation method', () {
-      expect(directory.countries(query: 'Egypt').single.calculationMethod, 5);
+      final egypt = directory.countries(query: 'Egypt').single;
+      expect(egypt.calculationMethodId, 5);
+      expect(egypt.calculationMethod, CalculationMethod.egypt);
+    });
+
+    test('resolves the database method ids that collide with aladhan ids', () {
+      CalculationMethod? methodFor(String iso) =>
+          directory.country(kIsoToCountryId[iso]!)!.calculationMethod;
+
+      // The database numbers its authorities independently of aladhan: id 7 is
+      // Kuwait here but Tehran there, id 9 is Singapore here but Kuwait there.
+      expect(methodFor('KW'), CalculationMethod.kuwait);
+      expect(methodFor('QA'), CalculationMethod.qatar);
+      expect(methodFor('SG'), CalculationMethod.singapore);
+      expect(methodFor('SA'), CalculationMethod.makkah);
+      expect(methodFor('TR'), CalculationMethod.turkey);
+      expect(methodFor('CA'), CalculationMethod.canada);
+      expect(methodFor('IR'), CalculationMethod.tehran);
+      expect(methodFor('OM'), CalculationMethod.oman);
+      expect(methodFor('DE'), CalculationMethod.munich);
+      expect(methodFor('LU'), CalculationMethod.luxembourg);
+      // The default bucket the database assigns to most of the world.
+      expect(methodFor('GB'), CalculationMethod.mwl);
+    });
+
+    test('every country resolves to a known method', () {
+      final unresolved = directory
+          .countries()
+          .where((c) => c.calculationMethod == null)
+          .toList();
+      expect(unresolved, isEmpty);
+    });
+
+    test('cities carry their country\'s recommended method', () {
+      final mecca = directory.nearestCity(21.4225, 39.8262);
+      expect(mecca?.calculationMethod, CalculationMethod.makkah);
     });
 
     test('orders a country\'s cities by prominence, capital first', () {
@@ -83,7 +118,8 @@ void main() {
     });
 
     test('multi-zone countries offer every real zone', () {
-      final us = directory.countries(query: 'United States')
+      final us = directory
+          .countries(query: 'United States')
           .firstWhere((c) => c.isoCode == 'US');
       final zones = directory.timeZonesForCountry(us.id);
       expect(zones.length, greaterThanOrEqualTo(8));

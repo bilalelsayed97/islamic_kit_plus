@@ -1,13 +1,18 @@
 import '../value_objects/coordinates.dart';
+import '../value_objects/method_adjustments.dart';
 import '../value_objects/method_params.dart';
 import 'language.dart';
 import 'midnight_mode.dart';
 
 /// A prayer-time calculation method (twilight authority).
 ///
-/// Each method carries its numeric [id] and short [code] (matching the aladhan
-/// API), a human-readable [methodName], and its strongly-typed [params].
-/// Angles/intervals are ported verbatim from islamic-network/prayer-times.
+/// Each method carries its numeric [id] and short [code], a human-readable
+/// [methodName], and its strongly-typed [params].
+///
+/// Angles, intervals and per-method minute corrections are each authority's
+/// published values. Methods with ids 1–23 keep the numbering of the aladhan
+/// API; the regional authorities aladhan does not publish are numbered from
+/// 101 so the two id spaces never collide.
 enum CalculationMethod {
   karachi(
     1,
@@ -16,6 +21,7 @@ enum CalculationMethod {
     MethodParams(
       fajrAngle: 18,
       ishaAngle: 18,
+      adjustments: MethodAdjustments(dhuhr: 1),
       location: Coordinates(24.8614622, 67.0099388),
     ),
   ),
@@ -26,6 +32,7 @@ enum CalculationMethod {
     MethodParams(
       fajrAngle: 15,
       ishaAngle: 15,
+      adjustments: MethodAdjustments(dhuhr: 1),
       location: Coordinates(39.70421229999999, -86.39943869999999),
     ),
   ),
@@ -36,6 +43,7 @@ enum CalculationMethod {
     MethodParams(
       fajrAngle: 18,
       ishaAngle: 17,
+      adjustments: MethodAdjustments(dhuhr: 1),
       location: Coordinates(51.5194682, -0.1360365),
     ),
   ),
@@ -46,6 +54,7 @@ enum CalculationMethod {
     MethodParams(
       fajrAngle: 18.5,
       ishaMinutesAfterMaghrib: 90,
+      ramadanIshaMinutesAfterMaghrib: 120,
       location: Coordinates(21.3890824, 39.8579118),
     ),
   ),
@@ -56,6 +65,7 @@ enum CalculationMethod {
     MethodParams(
       fajrAngle: 19.5,
       ishaAngle: 17.5,
+      adjustments: MethodAdjustments(dhuhr: 1),
       location: Coordinates(30.0444196, 31.2357116),
     ),
   ),
@@ -108,6 +118,7 @@ enum CalculationMethod {
     MethodParams(
       fajrAngle: 20,
       ishaAngle: 18,
+      adjustments: MethodAdjustments(dhuhr: 1),
       location: Coordinates(1.352083, 103.819836),
     ),
   ),
@@ -124,7 +135,7 @@ enum CalculationMethod {
   turkey(
     13,
     'TURKEY',
-    'Diyanet İşleri Başkanlığı, Turkey (experimental)',
+    'Diyanet İşleri Başkanlığı, Turkey',
     MethodParams(
       fajrAngle: 18,
       ishaAngle: 17,
@@ -145,16 +156,21 @@ enum CalculationMethod {
     15,
     'MOONSIGHTING',
     'Moonsighting Committee Worldwide (Moonsighting.com)',
-    MethodParams(fajrAngle: 0),
+    MethodParams(
+      fajrAngle: 18,
+      ishaAngle: 18,
+      adjustments: MethodAdjustments(dhuhr: 5, maghrib: 3),
+    ),
     usesMoonsighting: true,
   ),
   dubai(
     16,
     'DUBAI',
-    'Dubai (experimental)',
+    'The Gulf Region — Dubai',
     MethodParams(
       fajrAngle: 18.2,
       ishaAngle: 18.2,
+      adjustments: MethodAdjustments(sunrise: -3, dhuhr: 3, asr: 3, maghrib: 3),
       location: Coordinates(25.0762677, 55.087404),
     ),
   ),
@@ -203,7 +219,7 @@ enum CalculationMethod {
     'MOROCCO',
     'Morocco',
     MethodParams(
-      fajrAngle: 19,
+      fajrAngle: 18,
       ishaAngle: 17,
       location: Coordinates(33.9715904, -6.8498129),
     ),
@@ -224,10 +240,125 @@ enum CalculationMethod {
     'JORDAN',
     'Ministry of Awqaf, Islamic Affairs and Holy Places, Jordan',
     MethodParams(
-      fajrAngle: 18,
-      ishaAngle: 18,
-      maghribMinutesAfterSunset: 5,
+      fajrAngle: 18.5,
+      ishaMinutesAfterMaghrib: 90,
       location: Coordinates(31.9461222, 35.923844),
+    ),
+  ),
+
+  // ---------------------------------------------------------------------------
+  // Regional authorities absent from the aladhan API.
+  // Numbered from 101 so their ids never collide with aladhan's.
+  // ---------------------------------------------------------------------------
+
+  oman(
+    101,
+    'OMAN',
+    'Ministry of Endowments and Religious Affairs, Oman',
+    MethodParams(
+      fajrAngle: 18.5,
+      ishaMinutesAfterMaghrib: 90,
+      location: Coordinates(23.5880, 58.3829),
+    ),
+  ),
+  munich(
+    102,
+    'MUNICH',
+    'Islamic Center of Munich, Germany',
+    MethodParams(
+      fajrAngle: 18,
+      ishaAngle: 17,
+      location: Coordinates(48.1351, 11.5820),
+    ),
+  ),
+  maldives(
+    103,
+    'MALDIVES',
+    'Ministry of Islamic Affairs, Maldives',
+    MethodParams(
+      fajrAngle: 18,
+      ishaAngle: 17,
+      location: Coordinates(4.1755, 73.5093),
+    ),
+  ),
+  canada(
+    104,
+    'CANADA',
+    'Canada',
+    MethodParams(
+      fajrAngle: 15,
+      ishaAngle: 15,
+      location: Coordinates(45.4215, -75.6972),
+    ),
+  ),
+  tajikistan(
+    105,
+    'TAJIKISTAN',
+    'Islamic Center of Tajikistan',
+    MethodParams(
+      fajrAngle: 18,
+      ishaAngle: 17,
+      location: Coordinates(38.5598, 68.7870),
+    ),
+  ),
+  vienna(
+    106,
+    'VIENNA',
+    'Islamic Community of Austria, Vienna',
+    MethodParams(
+      fajrAngle: 18,
+      ishaAngle: 17,
+      location: Coordinates(48.2082, 16.3738),
+    ),
+  ),
+  belgium(
+    107,
+    'BELGIUM',
+    'Belgium',
+    MethodParams(
+      fajrAngle: 18,
+      ishaAngle: 17,
+      location: Coordinates(50.8503, 4.3517),
+    ),
+  ),
+  sudan(
+    108,
+    'SUDAN',
+    'Sudan',
+    MethodParams(
+      fajrAngle: 19.5,
+      ishaAngle: 17.5,
+      location: Coordinates(15.5007, 32.5599),
+    ),
+  ),
+  libya(
+    109,
+    'LIBYA',
+    'Libya',
+    MethodParams(
+      fajrAngle: 19.5,
+      ishaAngle: 17.5,
+      location: Coordinates(32.8872, 13.1913),
+    ),
+  ),
+  iraq(
+    110,
+    'IRAQ',
+    'Iraq',
+    MethodParams(
+      fajrAngle: 18,
+      ishaAngle: 17,
+      location: Coordinates(33.3152, 44.3661),
+    ),
+  ),
+  luxembourg(
+    111,
+    'LUXEMBOURG',
+    'Luxembourg',
+    MethodParams(
+      fajrAngle: 18,
+      ishaAngle: 17,
+      location: Coordinates(49.6116, 6.1319),
     ),
   ),
 
@@ -248,10 +379,11 @@ enum CalculationMethod {
     this.usesMoonsighting = false,
   });
 
-  /// Numeric id matching the aladhan `method` parameter.
+  /// Numeric id. Ids 1–23 and 99 match the aladhan `method` parameter; ids
+  /// from 101 are package-specific (see the enum doc).
   final int id;
 
-  /// Short code matching aladhan `/methods` keys (e.g. `"MWL"`).
+  /// Short code, e.g. `"MWL"`. Ids 1–23 match aladhan `/methods` keys.
   final String code;
 
   /// Human-readable authority name.
@@ -260,9 +392,12 @@ enum CalculationMethod {
   /// The method's twilight parameters.
   final MethodParams params;
 
-  /// Whether Fajr/Isha are computed by the Moonsighting Committee algorithm
-  /// rather than by a fixed twilight angle.
+  /// Whether Fajr/Isha are bounded by the Moonsighting Committee's seasonal
+  /// algorithm rather than resolved from the twilight angle alone.
   final bool usesMoonsighting;
+
+  /// Whether this method is exposed by the aladhan API under the same id.
+  bool get isAladhanMethod => id <= 99;
 
   static CalculationMethod fromId(int id) =>
       values.firstWhere((m) => m.id == id, orElse: () => mwl);
@@ -320,6 +455,24 @@ extension CalculationMethodL10n on CalculationMethod {
           language == Language.ar ? 'البرتغال' : 'Portugal',
         CalculationMethod.jordan =>
           language == Language.ar ? 'الأردن' : 'Jordan',
+        CalculationMethod.oman => language == Language.ar ? 'عُمان' : 'Oman',
+        CalculationMethod.munich =>
+          language == Language.ar ? 'ألمانيا (ميونخ)' : 'Germany (Munich)',
+        CalculationMethod.maldives =>
+          language == Language.ar ? 'المالديف' : 'Maldives',
+        CalculationMethod.canada => language == Language.ar ? 'كندا' : 'Canada',
+        CalculationMethod.tajikistan =>
+          language == Language.ar ? 'طاجيكستان' : 'Tajikistan',
+        CalculationMethod.vienna =>
+          language == Language.ar ? 'النمسا (فيينا)' : 'Austria (Vienna)',
+        CalculationMethod.belgium =>
+          language == Language.ar ? 'بلجيكا' : 'Belgium',
+        CalculationMethod.sudan =>
+          language == Language.ar ? 'السودان' : 'Sudan',
+        CalculationMethod.libya => language == Language.ar ? 'ليبيا' : 'Libya',
+        CalculationMethod.iraq => language == Language.ar ? 'العراق' : 'Iraq',
+        CalculationMethod.luxembourg =>
+          language == Language.ar ? 'لوكسمبورغ' : 'Luxembourg',
         CalculationMethod.custom =>
           language == Language.ar ? 'مخصّص' : 'Custom',
       };
@@ -337,8 +490,8 @@ extension CalculationMethodL10n on CalculationMethod {
             ? 'رابطة العالم الإسلامي — زاوية فجر 18° وعشاء 17°، وهي شائعة في أوروبا وغيرها.'
             : 'Muslim World League — 18° Fajr and 17° Isha, widely used across Europe and beyond.',
         CalculationMethod.makkah => language == Language.ar
-            ? 'جامعة أم القرى بمكة — زاوية فجر 18.5° مع تحديد العشاء بعد 90 دقيقة من المغرب.'
-            : 'Umm Al-Qura University, Makkah — 18.5° Fajr with Isha fixed at 90 minutes after Maghrib.',
+            ? 'جامعة أم القرى بمكة — زاوية فجر 18.5° مع تحديد العشاء بعد 90 دقيقة من المغرب (120 دقيقة في رمضان).'
+            : 'Umm Al-Qura University, Makkah — 18.5° Fajr with Isha fixed at 90 minutes after Maghrib (120 minutes during Ramadan).',
         CalculationMethod.egypt => language == Language.ar
             ? 'الهيئة المصرية العامة للمساحة — زاوية فجر 19.5° وعشاء 17.5°.'
             : 'Egyptian General Authority of Survey — 19.5° Fajr and 17.5° Isha.',
@@ -361,17 +514,17 @@ extension CalculationMethodL10n on CalculationMethod {
             ? 'اتحاد المنظمات الإسلامية في فرنسا — زاوية 12° لكل من الفجر والعشاء.'
             : 'Union des Organisations Islamiques de France — 12° for both Fajr and Isha.',
         CalculationMethod.turkey => language == Language.ar
-            ? 'رئاسة الشؤون الدينية التركية (ديانت) — زاوية فجر 18° وعشاء 17° (تجريبي).'
-            : 'Diyanet İşleri Başkanlığı, Turkey — 18° Fajr and 17° Isha (experimental).',
+            ? 'رئاسة الشؤون الدينية التركية (ديانت) — زاوية فجر 18° وعشاء 17°.'
+            : 'Diyanet İşleri Başkanlığı, Turkey — 18° Fajr and 17° Isha.',
         CalculationMethod.russia => language == Language.ar
             ? 'الإدارة الدينية لمسلمي روسيا — زاوية فجر 16° وعشاء 15°.'
             : 'Spiritual Administration of Muslims of Russia — 16° Fajr and 15° Isha.',
         CalculationMethod.moonsighting => language == Language.ar
-            ? 'لجنة رؤية الهلال العالمية — تحسب الفجر والعشاء بخوارزمية موسمية بدلاً من زاوية ثابتة.'
-            : 'Moonsighting Committee Worldwide — computes Fajr and Isha with a seasonal algorithm rather than a fixed angle.',
+            ? 'لجنة رؤية الهلال العالمية — زاوية 18° للفجر والعشاء مقيّدة بحساب موسمي يتغيّر مع خط العرض والفصل.'
+            : 'Moonsighting Committee Worldwide — 18° Fajr and Isha bounded by a seasonal calculation that varies with latitude and time of year.',
         CalculationMethod.dubai => language == Language.ar
-            ? 'دبي — زاوية 18.2° لكل من الفجر والعشاء (تجريبي).'
-            : 'Dubai — 18.2° for both Fajr and Isha (experimental).',
+            ? 'دبي — زاوية 18.2° لكل من الفجر والعشاء.'
+            : 'Dubai — 18.2° for both Fajr and Isha.',
         CalculationMethod.jakim => language == Language.ar
             ? 'دائرة التنمية الإسلامية الماليزية (جاكيم) — زاوية فجر 20° وعشاء 18°.'
             : 'Jabatan Kemajuan Islam Malaysia (JAKIM) — 20° Fajr and 18° Isha.',
@@ -385,14 +538,47 @@ extension CalculationMethodL10n on CalculationMethod {
             ? 'وزارة الشؤون الدينية بجمهورية إندونيسيا — زاوية فجر 20° وعشاء 18°.'
             : 'Kementerian Agama Republik Indonesia — 20° Fajr and 18° Isha.',
         CalculationMethod.morocco => language == Language.ar
-            ? 'المملكة المغربية — زاوية فجر 19° وعشاء 17°.'
-            : 'Morocco — 19° Fajr and 17° Isha.',
+            ? 'المملكة المغربية — زاوية فجر 18° وعشاء 17°.'
+            : 'Morocco — 18° Fajr and 17° Isha.',
         CalculationMethod.portugal => language == Language.ar
             ? 'الجالية الإسلامية في لشبونة — زاوية فجر 18° مع تحديد العشاء بعد 77 دقيقة من المغرب.'
             : 'Comunidade Islâmica de Lisboa — 18° Fajr with Isha fixed at 77 minutes after Maghrib.',
         CalculationMethod.jordan => language == Language.ar
-            ? 'وزارة الأوقاف والشؤون والمقدسات الإسلامية بالأردن — زاوية 18° لكل من الفجر والعشاء.'
-            : 'Ministry of Awqaf, Islamic Affairs and Holy Places, Jordan — 18° for both Fajr and Isha.',
+            ? 'وزارة الأوقاف والشؤون والمقدسات الإسلامية بالأردن — زاوية فجر 18.5° مع تحديد العشاء بعد 90 دقيقة من المغرب.'
+            : 'Ministry of Awqaf, Islamic Affairs and Holy Places, Jordan — 18.5° Fajr with Isha fixed at 90 minutes after Maghrib.',
+        CalculationMethod.oman => language == Language.ar
+            ? 'وزارة الأوقاف والشؤون الدينية بسلطنة عُمان — زاوية فجر 18.5° مع تحديد العشاء بعد 90 دقيقة من المغرب.'
+            : 'Ministry of Endowments and Religious Affairs, Oman — 18.5° Fajr with Isha fixed at 90 minutes after Maghrib.',
+        CalculationMethod.munich => language == Language.ar
+            ? 'المركز الإسلامي في ميونخ بألمانيا — زاوية فجر 18° وعشاء 17°.'
+            : 'Islamic Center of Munich, Germany — 18° Fajr and 17° Isha.',
+        CalculationMethod.maldives => language == Language.ar
+            ? 'وزارة الشؤون الإسلامية بجمهورية المالديف — زاوية فجر 18° وعشاء 17°.'
+            : 'Ministry of Islamic Affairs, Maldives — 18° Fajr and 17° Isha.',
+        CalculationMethod.canada => language == Language.ar
+            ? 'كندا — زاوية 15° لكل من الفجر والعشاء.'
+            : 'Canada — 15° for both Fajr and Isha.',
+        CalculationMethod.tajikistan => language == Language.ar
+            ? 'المركز الإسلامي في طاجيكستان — زاوية فجر 18° وعشاء 17°.'
+            : 'Islamic Center of Tajikistan — 18° Fajr and 17° Isha.',
+        CalculationMethod.vienna => language == Language.ar
+            ? 'الهيئة الإسلامية في النمسا بفيينا — زاوية فجر 18° وعشاء 17°.'
+            : 'Islamic Community of Austria, Vienna — 18° Fajr and 17° Isha.',
+        CalculationMethod.belgium => language == Language.ar
+            ? 'بلجيكا — زاوية فجر 18° وعشاء 17°.'
+            : 'Belgium — 18° Fajr and 17° Isha.',
+        CalculationMethod.sudan => language == Language.ar
+            ? 'السودان — زاوية فجر 19.5° وعشاء 17.5°.'
+            : 'Sudan — 19.5° Fajr and 17.5° Isha.',
+        CalculationMethod.libya => language == Language.ar
+            ? 'ليبيا — زاوية فجر 19.5° وعشاء 17.5°.'
+            : 'Libya — 19.5° Fajr and 17.5° Isha.',
+        CalculationMethod.iraq => language == Language.ar
+            ? 'العراق — زاوية فجر 18° وعشاء 17°.'
+            : 'Iraq — 18° Fajr and 17° Isha.',
+        CalculationMethod.luxembourg => language == Language.ar
+            ? 'لوكسمبورغ — زاوية فجر 18° وعشاء 17°.'
+            : 'Luxembourg — 18° Fajr and 17° Isha.',
         CalculationMethod.custom => language == Language.ar
             ? 'طريقة مخصّصة يوفّرها المستخدم بمعاملات الشفق الخاصة به.'
             : 'A user-supplied method that uses your own twilight parameters.',

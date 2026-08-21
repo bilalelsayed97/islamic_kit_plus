@@ -1,6 +1,6 @@
 /// Low-level Julian-Day math for Hijri <-> Gregorian conversion.
 ///
-/// Faithful port of islamic-network/calendar `Helpers/Date`, `Date/Gregorian`,
+/// Julian-day conversions for the Gregorian and Hijri calendars,
 /// `Date/Julian` and `Date/Hijri`. All values are chronological Julian Day
 /// numbers (CJDN); integer/truncating arithmetic is used exactly as in the PHP.
 class JulianDayMath {

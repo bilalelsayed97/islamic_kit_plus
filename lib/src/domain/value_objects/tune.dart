@@ -3,7 +3,7 @@ import '../enums/prayer.dart';
 /// Per-prayer time adjustments, in minutes — the equivalent of the aladhan
 /// `tune` parameter.
 ///
-/// Field order matches the aladhan/PrayTimes contract exactly:
+/// Field order matches the aladhan contract exactly:
 /// `Imsak, Fajr, Sunrise, Dhuhr, Asr, Maghrib, Sunset, Isha, Midnight`
 /// (note Maghrib comes before Sunset). Each value defaults to `0`.
 class Tune {

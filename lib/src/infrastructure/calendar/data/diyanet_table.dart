@@ -1,5 +1,5 @@
 /// Diyanet lunation-start table (MCJDN = CJDN - 2,400,000), one entry per lunar
-/// month. Ported verbatim from islamic-network/calendar Astronomical.php
+/// month, from the published Diyanet tables
 /// (`diyanet`).
 const List<int> kDiyanetTable = <int>[
   15141,

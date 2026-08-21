@@ -20,7 +20,7 @@ class CalculationParameters {
     this.school = AsrSchool.standard,
     this.asrShadowFactor,
     this.midnightMode,
-    this.highLatitudeRule = HighLatitudeRule.angleBased,
+    this.highLatitudeRule = HighLatitudeRule.middleOfNight,
     this.utcOffset = Duration.zero,
     this.elevation = 0,
     this.shafaq = Shafaq.general,
@@ -44,6 +44,11 @@ class CalculationParameters {
   /// Overrides the method's implied midnight mode when non-null.
   final MidnightMode? midnightMode;
 
+  /// How Fajr and Isha are bounded when the sun never reaches their angle.
+  ///
+  /// Defaults to [HighLatitudeRule.middleOfNight]. [HighLatitudeRule.none]
+  /// disables the bound entirely, so an unreachable angle yields an invalid
+  /// time instead.
   final HighLatitudeRule highLatitudeRule;
 
   /// UTC offset for the target date (caller-provided; include DST if relevant).
@@ -76,16 +81,24 @@ class CalculationParameters {
       : method.params;
 
   /// Midnight mode after resolving overrides and the method default.
+  ///
+  /// Defaults to [MidnightMode.jafari] — the night measured from sunset to the
+  /// following Fajr, which is the basis used for Midnight and the night
+  /// thirds. Pass [MidnightMode.standard] explicitly for the
+  /// sunset-to-sunrise night used by the aladhan API.
   MidnightMode get resolvedMidnightMode =>
-      midnightMode ?? effectiveParams.midnightMode ?? MidnightMode.standard;
+      midnightMode ?? effectiveParams.midnightMode ?? MidnightMode.jafari;
 
   /// Asr shadow factor after resolving the override / school.
   double get resolvedShadowFactor =>
       asrShadowFactor ?? school.shadowFactor.toDouble();
 
-  /// High-latitude rule after resolving (Moonsighting forces `none`).
-  HighLatitudeRule get resolvedHighLatitudeRule =>
-      method.usesMoonsighting ? HighLatitudeRule.none : highLatitudeRule;
+  /// High-latitude rule in effect.
+  ///
+  /// Kept as a separate getter for the aladhan `meta` echo; the Moonsighting
+  /// method supplies its own seasonal bounds and only consults this to see
+  /// whether bounding is switched off entirely.
+  HighLatitudeRule get resolvedHighLatitudeRule => highLatitudeRule;
 
   CalculationParameters copyWith({
     CalculationMethod? method,

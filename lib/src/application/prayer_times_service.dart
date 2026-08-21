@@ -1,6 +1,7 @@
 import '../domain/enums/calculation_method.dart';
 import '../domain/enums/prayer.dart';
 import '../domain/models/city.dart';
+import '../domain/models/city_entry.dart';
 import '../domain/models/next_prayer.dart';
 import '../domain/models/prayer_result.dart';
 import '../domain/models/qibla_direction.dart';
@@ -8,8 +9,10 @@ import '../domain/ports/geocoder.dart';
 import '../domain/value_objects/calculation_parameters.dart';
 import '../domain/value_objects/coordinates.dart';
 import '../infrastructure/calendar/hijri_converter_factory.dart';
+import '../infrastructure/config/bundled_method_map.dart';
 import '../infrastructure/config/location_defaults.dart';
 import '../infrastructure/geocoding/bundled_city_geocoder.dart';
+import '../infrastructure/geocoding/city_directory.dart';
 import 'prayer_calculator.dart';
 import 'usecases/get_qibla.dart';
 
@@ -19,6 +22,7 @@ import 'usecases/get_qibla.dart';
 class PrayerTimesService {
   PrayerTimesService({
     Geocoder? geocoder,
+    this.directory,
     PrayerCalculator calculator = const PrayerCalculator(),
     QiblaCalculator qibla = const QiblaCalculator(),
     HijriConverterFactory hijriFactory = const HijriConverterFactory(),
@@ -29,6 +33,16 @@ class PrayerTimesService {
 
   /// The geocoder used by the `*ByCity` / `*ByAddress` methods.
   final Geocoder geocoder;
+
+  /// The bundled city database, used by the `*ByCoordinatesAuto` methods to
+  /// resolve a GPS fix to a city, its timezone and its country's recommended
+  /// calculation method.
+  ///
+  /// Optional: without it, coordinate-based automatic parameters fall back to
+  /// [LocationDefaults] via the geocoder, which cannot resolve a country from
+  /// coordinates — so pass one when you have the database open.
+  final CityDirectory? directory;
+
   final PrayerCalculator _calculator;
   final QiblaCalculator _qibla;
   final HijriConverterFactory _hijriFactory;
@@ -125,6 +139,75 @@ class PrayerTimesService {
         school: LocationDefaults.schoolForCountry(city.country),
         utcOffset: city.utcOffset,
       );
+
+  /// [CalculationParameters] resolved automatically from a GPS fix.
+  ///
+  /// Requires [directory]. Finds the nearest city, then takes the calculation
+  /// method from that city's country (as recorded in the bundled database),
+  /// the Asr school from regional convention, and the UTC offset from the
+  /// city's timezone.
+  ///
+  /// Returns `null` when no city can be resolved for the coordinates.
+  ///
+  /// ```dart
+  /// final params = service.autoParamsForCoordinates(21.4225, 39.8262);
+  /// // -> Umm al-Qura, standard Asr, UTC+3
+  /// ```
+  CalculationParameters? autoParamsForCoordinates(
+    double latitude,
+    double longitude,
+  ) {
+    final city = _requireDirectory().nearestCity(latitude, longitude);
+    return city == null ? null : autoParamsForCityEntry(city);
+  }
+
+  /// [CalculationParameters] resolved automatically for a database [city] row.
+  ///
+  /// The method comes from the country's recorded preference, falling back to
+  /// [LocationDefaults] when the database records none.
+  CalculationParameters autoParamsForCityEntry(CityEntry city) {
+    final method = city.calculationMethod ??
+        LocationDefaults.methodForCountry(city.isoCode);
+    return CalculationParameters(
+      method: method,
+      school: LocationDefaults.schoolForCountry(city.isoCode),
+      utcOffset: city.utcOffset,
+      timezoneName: city.timeZoneId,
+    );
+  }
+
+  /// Fully automatic prayer times for a GPS fix: nearest city, its country's
+  /// method, its timezone. No [CalculationParameters] required.
+  ///
+  /// Requires [directory]. Returns `null` when no city can be resolved.
+  ///
+  /// The stored offset is **standard time** — add an hour yourself where
+  /// daylight saving is in force on [date].
+  PrayerResult? timingsByCoordinatesAuto(
+    double latitude,
+    double longitude, {
+    required DateTime date,
+  }) {
+    final city = _requireDirectory().nearestCity(latitude, longitude);
+    if (city == null) return null;
+    return _calculator.calculate(
+      date,
+      city.coordinates,
+      autoParamsForCityEntry(city),
+    );
+  }
+
+  CityDirectory _requireDirectory() {
+    final open = directory;
+    if (open == null) {
+      throw StateError(
+        'This operation needs the bundled city database. Construct '
+        'PrayerTimesService with `directory:` (see CityDirectory.openFile, '
+        'or loadBundledCityDirectory in islamic_kit_plus_flutter.dart).',
+      );
+    }
+    return open;
+  }
 
   // ---------------------------------------------------------------------------
   // Next prayer

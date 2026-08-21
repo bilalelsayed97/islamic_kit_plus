@@ -172,7 +172,9 @@ class CityDirectory {
     if (where != null) clauses.add(where);
     if (trimmed.isNotEmpty) {
       clauses.add('(c.city_name_en LIKE ? OR c.city_name_ar LIKE ?)');
-      bindings..add('%$trimmed%')..add('%$trimmed%');
+      bindings
+        ..add('%$trimmed%')
+        ..add('%$trimmed%');
     }
 
     final rows = _db.select(
@@ -211,7 +213,7 @@ class CityDirectory {
   static const String _citySelect =
       'SELECT c.city_id, c.city_name_en, c.city_name_ar, c.country_id, '
       'c.city_latitude, c.city_longitude, c.city_time_zone, c.time_zone_id, '
-      'c.city_level, co.country_name_en, co.country_name_ar '
+      'c.city_level, co.country_name_en, co.country_name_ar, co.calc_method '
       'FROM prayer_times_city_lookups c '
       'LEFT JOIN prayer_times_country_lookups co '
       '  ON co.country_id = c.country_id';
@@ -233,7 +235,7 @@ class CityDirectory {
       nameEn: (row['country_name_en'] as String?)?.trim() ?? '',
       nameAr: (row['country_name_ar'] as String?)?.trim() ?? '',
       isoCode: kCountryIdToIso[id] ?? '',
-      calculationMethod: (row['calc_method'] as num?)?.toInt(),
+      calculationMethodId: (row['calc_method'] as num?)?.toInt(),
     );
   }
 
@@ -256,6 +258,7 @@ class CityDirectory {
       utcOffset: Duration(
         minutes: _offsetMinutes(timeZoneId, row['city_time_zone'] as num?),
       ),
+      calculationMethodId: (row['calc_method'] as num?)?.toInt(),
     );
   }
 

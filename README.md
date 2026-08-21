@@ -15,15 +15,22 @@
 ---
 
 `islamic_kit_plus` computes **everything on-device**. There are **no network
-requests** to aladhan.com or any other service. It is a faithful Dart port of the
-[islamic-network](https://github.com/islamic-network) PHP stack — the PrayTimes.js
-v2.3 algorithm, the Moonsighting Committee twilight, the Hijri calendar library
-(four methods), and the qibla calculation — and its JSON output mirrors the
-[aladhan.com Prayer Times API](https://aladhan.com/prayer-times-api) response shape.
+requests** to aladhan.com or any other service.
+
+Prayer times are solved from **Jean Meeus' solar position** (*Astronomical
+Algorithms*, 2nd ed.), with the sun's right ascension and declination
+interpolated across three days so every event is computed at the moment it
+occurs rather than at a fixed seed hour. Around it sit the Moonsighting
+Committee twilight, a Hijri calendar with four methods, and the qibla
+calculation. JSON output mirrors the
+[aladhan.com Prayer Times API](https://aladhan.com/prayer-times-api)
+response **shape**.
 
 The calculation core (prayer times, Hijri calendar, qibla, calendars) depends on
 **only `dart:core` and `dart:math`**. The optional by‑city / by‑address geocoder
-reads a bundled ~131,000‑city SQLite database using [`sqlite3`](https://pub.dev/packages/sqlite3).
+reads a bundled SQLite database of **265,849 places** across 251 countries and
+371 timezones — 131,090 of them populated settlements, which is what city
+search and reverse geocoding match against.
 
 ## Table of contents
 
@@ -49,29 +56,30 @@ reads a bundled ~131,000‑city SQLite database using [`sqlite3`](https://pub.de
 - [Timezones & DST](#timezones--dst)
 - [Architecture](#architecture)
 - [Testing](#testing)
-- [License & attribution](#license--attribution)
 
 ## Highlights
 
-- 🕌 **Prayer times** with 23 calculation methods, Asr schools, high‑latitude
-  rules, midnight modes, per‑prayer tuning, and elevation.
+- 🕌 **Prayer times** from the Meeus solar algorithm, with 34 calculation
+  methods, Asr schools, high‑latitude rules, midnight modes, per‑prayer tuning,
+  and elevation.
 - 🌙 **Moonsighting Committee Worldwide** Fajr/Isha (general / red / white shafaq).
 - 📅 **Hijri ↔ Gregorian** conversion with four calendar methods, month lengths,
   and Islamic holidays.
 - 🗓️ **Calendars** — monthly, annual, and date‑range, in both Gregorian and Hijri.
 - 🧭 **Qibla** direction (great‑circle bearing to the Ka'aba).
-- 🏙️ **Offline geocoding** — bundled 138k‑city database (English + Arabic names),
-  behind a swappable `Geocoder` port.
+- 🏙️ **Offline geocoding** — bundled database of 265,849 places (131k
+  settlements) with English + Arabic names, behind a swappable `Geocoder` port.
 - 🌐 **EN/AR localization** for prayer, month, and weekday names, plus a
   `title` / `description` on every enum for building settings UIs.
-- 🔌 **aladhan‑compatible** `toAladhanJson()` for drop‑in API parity.
+- 🔌 **aladhan‑shaped** `toAladhanJson()` — the same response structure, so an
+  existing aladhan client parses it unchanged.
 - 🧱 **Clean architecture**, immutable value objects, dependency‑free core.
 
 ## Install
 
 ```yaml
 dependencies:
-  islamic_kit_plus: ^0.1.0
+  islamic_kit_plus: ^0.3.0
 ```
 
 Then `flutter pub get`.
@@ -101,7 +109,7 @@ void main() {
   );
 
   print(result.formatted(Prayer.fajr));               // 03:57
-  print(result.formatted(Prayer.asr, TimeFormat.h12)); // 4:54 pm
+  print(result.formatted(Prayer.asr, TimeFormat.h12)); // 4:56 pm
   print(Prayer.maghrib.title(Language.ar));            // المغرب
   print(result.date.hijri.day);                        // Hijri day number
 }
@@ -109,10 +117,10 @@ void main() {
 
 ## Zero-config & automatic per-location settings
 
-You don't have to set every enum. There are three levels of "automatic":
+You don't have to set every enum. There are four levels of "automatic":
 
 **1. Sensible global defaults.** Every field of `CalculationParameters` has a
-default (`method: mwl`, `school: standard`, `highLatitudeRule: angleBased`,
+default (`method: mwl`, `school: standard`, `highLatitudeRule: middleOfNight`,
 `calendarMethod: hjcosa`, `shafaq: general`, `imsakMinutes: 10`, …), so you can
 call `timings` with **no params** — you only supply the UTC offset:
 
@@ -152,12 +160,37 @@ CalculationMethod m = LocationDefaults.methodForCountry('US'); // ISNA
 AsrSchool s        = LocationDefaults.schoolForCountry('TR');  // Hanafi
 ```
 
-**Country → method** defaults include: US/CA/MX → ISNA, SA/YE → Makkah, AE → Dubai,
-KW → Kuwait, QA → Qatar, BH/OM → Gulf, EG/SD/SY/LB/IQ/PS/LY → Egypt, JO → Jordan,
-DZ → Algeria, MA → Morocco, TN → Tunisia, IR → Tehran, TR → Turkey, RU → Russia,
-PK/IN/BD/AF → Karachi, ID → Kemenag, MY/BN → JAKIM, SG → Singapore, FR → France,
-PT → Portugal — everything else → Muslim World League. Hanafi Asr is the default
-for PK, IN, BD, AF, TR. All of this is overridable.
+**4. Fully automatic from a GPS fix.** With the city database open,
+`autoParamsForCoordinates` takes a latitude and longitude, finds the nearest
+city, and reads the calculation method from that city's country as recorded in
+the database (all 251 of them) plus the UTC offset from its timezone:
+
+```dart
+import 'package:islamic_kit_plus/islamic_kit_plus_flutter.dart';
+
+final service = PrayerTimesService(
+  directory: await loadBundledCityDirectory(),
+);
+
+// Everything inferred from the coordinates:
+final result = service.timingsByCoordinatesAuto(
+  21.4225, 39.8262,
+  date: DateTime.now(),
+); // -> Umm al-Qura, UTC+3
+
+// Or just the parameters, to reuse elsewhere:
+final params = service.autoParamsForCoordinates(21.4225, 39.8262);
+```
+
+**Country → method** defaults (the fallback when the database is not open):
+US/MX → ISNA, CA → Canada, SA/YE/BH/SY → Makkah, AE → Dubai, KW → Kuwait,
+QA → Qatar, OM → Oman, EG/NG → Egypt, SD/SS → Sudan, IQ → Iraq, LY → Libya,
+JO → Jordan, DZ → Algeria, MA/EH → Morocco, TN → Tunisia, IR → Tehran,
+TR → Turkey, RU → Russia, TJ → Tajikistan, PK/IN/BD/AF → Karachi,
+MV → Maldives, ID/MY/SG → Singapore, BN → JAKIM, FR/MF → France, PT → Portugal,
+DE → Munich, AT → Vienna, BE → Belgium, LU → Luxembourg — everything else →
+Muslim World League. Hanafi Asr is the default for PK, IN, BD, AF, TR. All of
+this is overridable.
 
 > The one thing not auto-detected is **daylight saving** — bundled city offsets
 > are standard time. See [Timezones & DST](#timezones--dst).
@@ -185,10 +218,10 @@ Every setting is optional and immutable. Defaults are shown.
 | `customMethod` | `MethodParams?` | `null` | Angles/intervals used when `method` is `custom`. |
 | `school` | `AsrSchool` | `standard` | Asr shadow factor (Standard = 1, Hanafi = 2). |
 | `asrShadowFactor` | `double?` | `null` | Overrides the school's shadow factor when set. |
-| `midnightMode` | `MidnightMode?` | `null` | Overrides the method's midnight basis when set. |
-| `highLatitudeRule` | `HighLatitudeRule` | `angleBased` | High‑latitude Fajr/Isha adjustment. |
+| `midnightMode` | `MidnightMode?` | `null` | Overrides the midnight basis. Unset resolves to `jafari` (sunset → Fajr), the engine's basis. |
+| `highLatitudeRule` | `HighLatitudeRule` | `middleOfNight` | High‑latitude Fajr/Isha bound. `none` disables it. |
 | `utcOffset` | `Duration` | `Duration.zero` | **You provide this.** Offset for the target date (include DST). |
-| `elevation` | `double` | `0` | Observer elevation in metres (affects sunrise/sunset). |
+| `elevation` | `double` | `0` | Observer elevation in metres. Dips the horizon, so sunrise comes earlier and sunset later. A package extension — the reference engine assumes sea level. |
 | `shafaq` | `Shafaq` | `general` | Twilight used by the Moonsighting method for Isha. |
 | `tune` | `Tune` | `Tune()` | Per‑prayer offsets in minutes (aladhan `tune`). |
 | `imsakMinutes` | `int` | `10` | Minutes before Fajr for Imsak. |
@@ -208,7 +241,7 @@ final tuned = base.copyWith(
 ### Per-prayer tuning (the aladhan `tune` parameter)
 
 Shift any prayer by a number of minutes with `Tune`. Its field order matches the
-aladhan/PrayTimes contract exactly — `Imsak, Fajr, Sunrise, Dhuhr, Asr, Maghrib,
+aladhan contract exactly — `Imsak, Fajr, Sunrise, Dhuhr, Asr, Maghrib,
 Sunset, Isha, Midnight` (Maghrib precedes Sunset) — so you can build it from, or
 export it to, the aladhan `tune` CSV:
 
@@ -241,7 +274,7 @@ String help  = AsrSchool.hanafi.description(Language.en);        // explains the
 | Enum | Values |
 |---|---|
 | `Prayer` | imsak, fajr, sunrise, dhuhr, asr, sunset, maghrib, isha, midnight, firstThird, lastThird |
-| `CalculationMethod` | 23 methods (see table) + custom |
+| `CalculationMethod` | 33 methods (see table) + custom |
 | `AsrSchool` | standard, hanafi |
 | `MidnightMode` | standard, jafari |
 | `HighLatitudeRule` | none, middleOfNight, oneSeventh, angleBased |
@@ -256,31 +289,58 @@ String help  = AsrSchool.hanafi.description(Language.en);        // explains the
 
 ## Calculation methods
 
-| Method | Fajr | Isha |
-|---|---|---|
-| `mwl` — Muslim World League | 18° | 17° |
-| `isna` — Islamic Society of North America | 15° | 15° |
-| `egypt` — Egyptian General Authority of Survey | 19.5° | 17.5° |
-| `makkah` — Umm al‑Qura, Makkah | 18.5° | 90 min |
-| `karachi` — University of Islamic Sciences | 18° | 18° |
-| `tehran` — University of Tehran | 17.7° | 14° (Maghrib 4.5°) |
-| `gulf` — Gulf Region | 19.5° | 90 min |
-| `kuwait` | 18° | 17.5° |
-| `qatar` | 18° | 90 min |
-| `singapore` — MUIS | 20° | 18° |
-| `france` — UOIF | 12° | 12° |
-| `turkey` — Diyanet | 18° | 17° |
-| `russia` | 16° | 15° |
-| `moonsighting` — Moonsighting Committee | seasonal | seasonal |
-| `dubai` | 18.2° | 18.2° |
-| `jakim` — Malaysia | 20° | 18° |
-| `tunisia` | 18° | 18° |
-| `algeria` | 18° | 17° |
-| `kemenag` — Indonesia | 20° | 18° |
-| `morocco` | 19° | 17° |
-| `portugal` | 18° | 77 min (Maghrib 3 min) |
-| `jordan` | 18° | 18° (Maghrib 5 min) |
-| `custom` | your `MethodParams` | |
+Several authorities publish times a minute or two off the pure astronomical
+value — most add a minute to Dhuhr so the printed time is safely past the
+zenith. Those corrections are part of the method definition and are listed here
+as "adjustments"; they apply before your own `tune` offsets.
+
+| Method | Fajr | Isha | Adjustments |
+|---|---|---|---|
+| `mwl` — Muslim World League | 18° | 17° | Dhuhr +1 |
+| `isna` — Islamic Society of North America | 15° | 15° | Dhuhr +1 |
+| `egypt` — Egyptian General Authority of Survey | 19.5° | 17.5° | Dhuhr +1 |
+| `makkah` — Umm al‑Qura, Makkah | 18.5° | 90 min (**120 in Ramadan**) | |
+| `karachi` — University of Islamic Sciences | 18° | 18° | Dhuhr +1 |
+| `tehran` — University of Tehran | 17.7° | 14° (Maghrib 4.5°) | |
+| `gulf` — Gulf Region | 19.5° | 90 min | |
+| `kuwait` | 18° | 17.5° | |
+| `qatar` | 18° | 90 min | |
+| `singapore` — MUIS | 20° | 18° | Dhuhr +1 |
+| `france` — UOIF | 12° | 12° | |
+| `turkey` — Diyanet | 18° | 17° | |
+| `russia` | 16° | 15° | |
+| `moonsighting` — Moonsighting Committee | 18° + seasonal | 18° + seasonal | Dhuhr +5, Maghrib +3 |
+| `dubai` | 18.2° | 18.2° | Sunrise −3, Dhuhr +3, Asr +3, Maghrib +3 |
+| `jakim` — Malaysia | 20° | 18° | |
+| `tunisia` | 18° | 18° | |
+| `algeria` | 18° | 17° | |
+| `kemenag` — Indonesia | 20° | 18° | |
+| `morocco` | 18° | 17° | |
+| `portugal` | 18° | 77 min (Maghrib 3 min) | |
+| `jordan` | 18.5° | 90 min | |
+| `oman` | 18.5° | 90 min | |
+| `munich` — Germany | 18° | 17° | |
+| `maldives` | 18° | 17° | |
+| `canada` | 15° | 15° | |
+| `tajikistan` | 18° | 17° | |
+| `vienna` — Austria | 18° | 17° | |
+| `belgium` | 18° | 17° | |
+| `sudan` | 19.5° | 17.5° | |
+| `libya` | 19.5° | 17.5° | |
+| `iraq` | 18° | 17° | |
+| `luxembourg` | 18° | 17° | |
+| `custom` | your `MethodParams` | | |
+
+`id` matches the aladhan `method` parameter for the first 22 methods and
+`custom` (99). The regional authorities aladhan does not publish are numbered
+from 101, so the two id spaces never collide — check with `isAladhanMethod`.
+
+### Ramadan
+
+`makkah` is the only method whose Isha interval changes with the season: Umm
+al‑Qura lengthens 90 minutes to 120 for Ramadan. The switch is resolved from
+the **date being computed** (against the Umm al‑Qura table), so a calendar
+generated months ahead still gets it right.
 
 ### Custom method
 
@@ -342,7 +402,7 @@ rolling to the next day's Fajr if you're past Isha:
 ```dart
 final next = service.nextPrayer(DateTime(2024, 4, 24, 13, 30), coords, params);
 next.prayer;        // Prayer.asr
-next.time.format(); // "16:54"
+next.time.format(); // "16:56"
 next.onDate;        // 2024-04-24
 
 service.nextPrayerByAddress('London, UK', DateTime.now());
@@ -411,8 +471,9 @@ your source or plug in your own.
 
 ### Option A — bundled SQLite database (recommended)
 
-Ships a ~131,000‑city database (English + Arabic names, coordinates, standard‑time
-offsets). Load it once in a Flutter app:
+Ships a 265,849‑place database — 131,090 populated settlements plus their
+administrative divisions — with English + Arabic names, coordinates and
+standard‑time offsets. Load it once in a Flutter app:
 
 ```dart
 import 'package:islamic_kit_plus/islamic_kit_plus_flutter.dart';
@@ -516,7 +577,7 @@ result.toAladhanJson();
 // {
 //   "code": 200, "status": "OK",
 //   "data": {
-//     "timings": { "Fajr": "03:57", "Dhuhr": "12:59", ... },
+//     "timings": { "Fajr": "03:57", "Dhuhr": "13:00", ... },
 //     "date": { "readable": "...", "timestamp": "...",
 //               "gregorian": { ... }, "hijri": { ...ar names, holidays... } },
 //     "meta": { "latitude": .., "method": {..}, "school": "STANDARD", ... }
@@ -569,15 +630,15 @@ lib/
 flutter test
 ```
 
-The suite pins outputs to the upstream PHP gold vectors — London ISNA timings,
-Moonsighting Fajr/Isha, all four Hijri conversion methods (with sighting overrides
-and range checks), the qibla reference value, and the bundled‑database geocoder.
+The suite pins outputs to reference vectors:
 
-## License & attribution
-
-**GPL‑3.0‑or‑later.** See [`LICENSE`](LICENSE) and [`NOTICE.md`](NOTICE.md).
-
-Credit to [PrayTimes.org](https://praytimes.org) (Hamid Zarrabi‑Zadeh) and the
-[Islamic Network](https://github.com/islamic-network) projects, whose algorithms
-and data this package ports. This package makes no network calls to aladhan.com;
-its JSON shape is provided for compatibility only.
+- **The solar core** against Meeus' worked example 25.a (right ascension and
+  declination to five decimal places) and example 7.a for the Julian day.
+- **Prayer times** against a published reference vector — Raleigh NC,
+  2015‑07‑12, ISNA, Hanafi — matched to the minute across all six times.
+- **The method table** as an explicit list, so changing any angle or correction
+  has to be deliberate.
+- Moonsighting Fajr/Isha, the Ramadan Isha switch, high‑latitude bounds and
+  polar‑night invalidation, all four Hijri conversion methods (with sighting
+  overrides and range checks), the qibla reference value, and the
+  bundled‑database geocoder and method map.

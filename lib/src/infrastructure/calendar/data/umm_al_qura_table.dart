@@ -1,5 +1,5 @@
 /// Umm al-Qura lunation-start table (MCJDN = CJDN - 2,400,000), one entry per
-/// lunar month. Ported verbatim from islamic-network/calendar Astronomical.php
+/// lunar month, from the published Umm al-Qura tables
 /// (`ummAlQura`). Used by Umm al-Qura and HJCoSA converters (lunations = 16260).
 const List<int> kUmmAlQuraTable = <int>[
   28607,

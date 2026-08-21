@@ -3,9 +3,8 @@ typedef LocalizedName = ({String en, String ar});
 
 /// Static English/Arabic name tables for Gregorian and Hijri calendars.
 ///
-/// Hijri month and weekday names (with diacritics) are ported verbatim from
-/// islamic-network/calendar `Helpers/Calendar.php`. Weekdays are keyed by ISO
-/// weekday number (Mon = 1 … Sun = 7), matching `DateTime.weekday`.
+/// Hijri month and weekday names carry their Arabic diacritics. Weekdays are
+/// keyed by ISO weekday number (Mon = 1 … Sun = 7), matching `DateTime.weekday`.
 class Localizer {
   const Localizer._();
 

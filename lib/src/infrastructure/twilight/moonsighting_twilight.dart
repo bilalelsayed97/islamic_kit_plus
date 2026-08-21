@@ -1,57 +1,76 @@
-import '../../domain/enums/prayer.dart';
 import '../../domain/enums/shafaq.dart';
 import '../../domain/ports/twilight_strategy.dart';
+import '../astronomy/astronomical.dart';
 
 /// Moonsighting Committee Worldwide Fajr/Isha twilight.
 ///
-/// Faithful port of islamic-network/prayer-times-moonsighting: a piecewise-linear
-/// interpolation of "minutes from sunrise/sunset" driven by the day count from
-/// the winter (N) / summer (S) solstice, with per-latitude coefficients.
+/// A piecewise-linear interpolation of "minutes from sunrise/sunset" driven by
+/// the day count since the winter (northern) or summer (southern) solstice,
+/// with per-latitude coefficients, as published by the committee.
 class MoonsightingTwilight implements TwilightStrategy {
   const MoonsightingTwilight();
 
   @override
-  void recalculate(TwilightContext context) {
-    final lat = context.coordinates.latitude;
-    final absLat = lat.abs();
-    final dyy = _daysFromSolstice(context.date, lat);
-
-    // Fajr — minutes before sunrise.
-    final fajrMinutes = _minutes(
-      dyy,
-      75 + 28.65 / 55 * absLat,
-      75 + 19.44 / 55 * absLat,
-      75 + 32.74 / 55 * absLat,
-      75 + 48.1 / 55 * absLat,
-    ).round();
-    final sunrise = context.times[Prayer.sunrise];
-    if (sunrise != null) {
-      final fajr = sunrise - fajrMinutes / 60;
-      context.times[Prayer.fajr] = fajr;
-      context.times[Prayer.imsak] = fajr - context.imsakMinutes / 60;
-    }
-
-    // Isha — minutes after sunset (per shafaq).
-    final c = _ishaCoefficients(context.shafaq, absLat);
-    final ishaMinutes = _minutes(dyy, c[0], c[1], c[2], c[3]).round();
-    final sunset = context.times[Prayer.sunset];
-    if (sunset != null) {
-      context.times[Prayer.isha] = sunset + ishaMinutes / 60;
-    }
+  int fajrSecondsBeforeSunrise(DateTime date, double latitude) {
+    final absLat = latitude.abs();
+    final minutes = _interpolate(
+      _daysSinceSolstice(date, latitude),
+      75 + 28.65 / 55.0 * absLat,
+      75 + 19.44 / 55.0 * absLat,
+      75 + 32.74 / 55.0 * absLat,
+      75 + 48.10 / 55.0 * absLat,
+    );
+    return Astronomical.javaRound(minutes * 60.0);
   }
 
-  /// Signed whole-day count from the year's solstice, wrapped to `[0, 365]`.
-  /// Uses UTC calendar days so results are deterministic (no DST).
-  int _daysFromSolstice(DateTime date, double latitude) {
+  @override
+  int ishaSecondsAfterSunset(
+    DateTime date,
+    double latitude,
+    Shafaq shafaq,
+  ) {
+    final absLat = latitude.abs();
+    final c = _ishaCoefficients(shafaq, absLat);
+    final minutes = _interpolate(
+      _daysSinceSolstice(date, latitude),
+      c[0],
+      c[1],
+      c[2],
+      c[3],
+    );
+    return Astronomical.javaRound(minutes * 60.0);
+  }
+
+  /// Whole days since the hemisphere's solstice, wrapped into the year.
+  ///
+  /// Derived from the day-of-year rather than a date subtraction so that leap
+  /// years and the New Year boundary land on the published day.
+  int _daysSinceSolstice(DateTime date, double latitude) {
     final year = date.year;
-    final solstice =
-        latitude > 0 ? DateTime.utc(year, 12, 21) : DateTime.utc(year, 6, 21);
-    final d = DateTime.utc(date.year, date.month, date.day);
-    final diff = d.difference(solstice).inDays;
-    return diff > 0 ? diff : 365 + diff;
+    final leap = _isLeapYear(year);
+    final daysInYear = leap ? 366 : 365;
+    final dayOfYear = _dayOfYear(date);
+
+    if (latitude >= 0) {
+      // The December solstice sits 10 days before year-end.
+      final days = dayOfYear + 10;
+      return days >= daysInYear ? days - daysInYear : days;
+    }
+    final southernOffset = leap ? 173 : 172;
+    final days = dayOfYear - southernOffset;
+    return days < 0 ? days + daysInYear : days;
   }
 
-  double _minutes(int dyy, double a, double b, double c, double d) {
+  int _dayOfYear(DateTime date) =>
+      DateTime.utc(date.year, date.month, date.day)
+          .difference(DateTime.utc(date.year))
+          .inDays +
+      1;
+
+  bool _isLeapYear(int year) =>
+      year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+
+  double _interpolate(int dyy, double a, double b, double c, double d) {
     if (dyy < 91) return a + (b - a) / 91 * dyy;
     if (dyy < 137) return b + (c - b) / 46 * (dyy - 91);
     if (dyy < 183) return c + (d - c) / 46 * (dyy - 137);
@@ -60,7 +79,7 @@ class MoonsightingTwilight implements TwilightStrategy {
     return b + (a - b) / 91 * (dyy - 275);
   }
 
-  /// Returns [a, b, c, d] for the given shafaq.
+  /// Returns the `[a, b, c, d]` seasonal coefficients for [shafaq].
   List<double> _ishaCoefficients(Shafaq shafaq, double absLat) {
     switch (shafaq) {
       case Shafaq.ahmer:

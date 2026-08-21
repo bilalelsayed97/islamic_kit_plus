@@ -20,7 +20,7 @@ void main() {
     final data = json['data'] as Map<String, dynamic>;
     final timings = data['timings'] as Map<String, dynamic>;
     expect(timings['Fajr'], '03:57');
-    expect(timings['Dhuhr'], '12:59');
+    expect(timings['Dhuhr'], '13:00');
     expect(timings.containsKey('Firstthird'), isTrue);
 
     final date = data['date'] as Map<String, dynamic>;
@@ -36,7 +36,7 @@ void main() {
     final meta = data['meta'] as Map<String, dynamic>;
     expect((meta['method'] as Map)['id'], 2);
     expect(meta['school'], 'STANDARD');
-    expect(meta['latitudeAdjustmentMethod'], 'ANGLE_BASED');
+    expect(meta['latitudeAdjustmentMethod'], 'MIDDLE_OF_THE_NIGHT');
     expect((meta['offset'] as Map).length, 9);
   });
 

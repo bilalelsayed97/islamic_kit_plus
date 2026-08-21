@@ -1,31 +1,17 @@
-import '../enums/prayer.dart';
 import '../enums/shafaq.dart';
-import '../value_objects/coordinates.dart';
 
-/// Inputs handed to a [TwilightStrategy] after the base astronomical
-/// computation. [times] is the mutable map of raw local-hour values.
-class TwilightContext {
-  const TwilightContext({
-    required this.times,
-    required this.date,
-    required this.coordinates,
-    required this.shafaq,
-    required this.imsakMinutes,
-  });
-
-  final Map<Prayer, double?> times;
-  final DateTime date;
-  final Coordinates coordinates;
-  final Shafaq shafaq;
-
-  /// Minutes before Fajr used for Imsak (when Imsak is interval-based).
-  final int imsakMinutes;
-}
-
-/// Strategy for deriving Fajr / Imsak / Isha when a method does not use a fixed
-/// twilight angle (e.g. the Moonsighting Committee Worldwide method).
+/// Supplies seasonal Fajr/Isha twilight for methods that do not use a fixed
+/// angle — today only the Moonsighting Committee Worldwide method.
 ///
-/// Implementations mutate [TwilightContext.times] in place.
+/// Implementations return whole seconds relative to sunrise/sunset. The engine
+/// owns how those values are combined with the angle-based candidates (the
+/// seasonal values act as *bounds*, not replacements), so a strategy only has
+/// to answer the seasonal question.
 abstract class TwilightStrategy {
-  void recalculate(TwilightContext context);
+  /// Seconds **before** sunrise at which Fajr begins on [date] at [latitude].
+  int fajrSecondsBeforeSunrise(DateTime date, double latitude);
+
+  /// Seconds **after** sunset at which Isha begins on [date] at [latitude],
+  /// for the requested [shafaq] (twilight colour).
+  int ishaSecondsAfterSunset(DateTime date, double latitude, Shafaq shafaq);
 }

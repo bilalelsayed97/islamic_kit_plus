@@ -17,6 +17,7 @@ class CityEntry {
     required this.coordinates,
     required this.utcOffset,
     this.timeZoneId,
+    this.calculationMethodId,
   });
 
   /// Primary key in the bundled database (`prayer_times_city_lookups`).
@@ -47,6 +48,12 @@ class CityEntry {
 
   /// Standard-time UTC offset. Does **not** account for daylight saving.
   final Duration utcOffset;
+
+  /// Raw `calc_method` value the database recommends for this city's country.
+  ///
+  /// The database's own numbering, **not** an aladhan method id. Resolve it
+  /// with `BundledMethodMap` (or the `calculationMethod` extension getter).
+  final int? calculationMethodId;
 
   @override
   bool operator ==(Object other) => other is CityEntry && other.id == id;

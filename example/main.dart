@@ -4,7 +4,7 @@
 //
 // Run with: dart run example/main.dart
 //
-// For by-city / by-address lookups backed by the bundled 138k-city database in
+// For by-city / by-address lookups backed by the bundled city database in
 // a Flutter app, import 'package:islamic_kit_plus/islamic_kit_plus_flutter.dart'
 // and do:
 //   final geocoder = await loadBundledCityGeocoder();

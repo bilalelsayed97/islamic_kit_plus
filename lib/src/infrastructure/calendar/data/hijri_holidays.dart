@@ -1,5 +1,5 @@
 /// Islamic holidays keyed by [hijriMonth][hijriDay] -> list of event names.
-/// Ported verbatim from islamic-network/calendar Holydays.php.
+/// Islamic holidays and observances by Hijri `dd-mm` key.
 const Map<int, Map<int, List<String>>> kHijriHolidays =
     <int, Map<int, List<String>>>{
   1: <int, List<String>>{

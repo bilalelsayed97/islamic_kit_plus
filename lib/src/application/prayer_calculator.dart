@@ -8,8 +8,12 @@ import '../domain/value_objects/calculation_parameters.dart';
 import '../domain/value_objects/coordinates.dart';
 import '../infrastructure/astronomy/astronomical_calculator.dart';
 import '../infrastructure/calendar/hijri_converter_factory.dart';
+import '../infrastructure/calendar/table_hijri_converter.dart';
 import '../infrastructure/localization/localizer.dart';
 import '../infrastructure/twilight/moonsighting_twilight.dart';
+
+/// Hijri month number of Ramadan.
+const int _ramadanMonth = 9;
 
 String _two(int n) => n < 10 ? '0$n' : '$n';
 
@@ -33,8 +37,13 @@ class PrayerCalculator {
     CalculationParameters params,
   ) {
     final twilight = params.method.usesMoonsighting ? moonsighting : null;
-    final raw =
-        astronomy.compute(date, coordinates, params, twilight: twilight);
+    final raw = astronomy.compute(
+      date,
+      coordinates,
+      params,
+      twilight: twilight,
+      ramadan: _isRamadan(date, params),
+    );
     final civil = DateTime(date.year, date.month, date.day);
 
     return PrayerResult(
@@ -43,6 +52,22 @@ class PrayerCalculator {
       date: _dateInfo(date, params),
       meta: _meta(coordinates, params),
     );
+  }
+
+  /// Whether [date] falls in Ramadan, for methods whose Isha interval changes
+  /// during the month (only Umm al-Qura does).
+  ///
+  /// Always resolved against the Umm al-Qura table regardless of the caller's
+  /// `calendarMethod`, because the rule itself is Saudi. Dates outside the
+  /// table's range fall back to the method's ordinary interval.
+  bool _isRamadan(DateTime date, CalculationParameters params) {
+    if (!params.effectiveParams.hasRamadanIshaInterval) return false;
+    const converter = TableHijriConverter.ummAlQura();
+    try {
+      return converter.fromGregorian(date).month == _ramadanMonth;
+    } on ArgumentError {
+      return false;
+    }
   }
 
   DateInfo _dateInfo(DateTime date, CalculationParameters params) {

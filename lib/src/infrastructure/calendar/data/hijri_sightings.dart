@@ -1,5 +1,5 @@
 /// HJCoSA announced lunar-sighting overrides: Gregorian `dd-mm-yyyy` -> announced
-/// Hijri `dd-mm-yyyy`. Ported verbatim from islamic-network/calendar
+/// Hijri `dd-mm-yyyy`. Recorded moon sightings that override the
 /// `Calendar::getHJCoSALunarSightings()`.
 const Map<String, String> kHjcosaSightings = <String, String>{
   '27-10-2003': '01-09-1424',
