@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "generator": "islamic_kit_plus tool/conformance/generate.dart",
+  "packageVersion": "0.3.1",
+  "dartSdk": "3.13.2",
+  "gitSha": "e9dde03c958875519c2f291b2c625adc371b12cd",
+  "tz": "UTC",
+  "generatedAt": "2026-09-18T23:06:53.970896Z",
+  "counts": {
+    "timings_matrix": 3808,
+    "timings_detail": 58,
+    "hijri_fromGregorian": 8157,
+    "hijri_toGregorian": 11888,
+    "hijri_daily": 29610,
+    "qibla": 45,
+    "next_prayer": 90,
+    "calendars": 10,
+    "moonsighting": 1332,
+    "geocoder_curated": 30,
+    "geocoder_sqlite": 30
+  }
+}

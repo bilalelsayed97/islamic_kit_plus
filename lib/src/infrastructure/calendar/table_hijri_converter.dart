@@ -8,8 +8,17 @@ import 'julian_day_math.dart';
 
 int _encode((int, int, int) ymd) => ymd.$1 * 10000 + ymd.$2 * 100 + ymd.$3;
 
-/// Table-driven converter (Umm al-Qura, Diyanet). `gToH` is a lunation-table
-/// lookup; `hToG` uses the arithmetic Hijri->JD path, exactly as the PHP.
+/// Table-driven converter (Umm al-Qura, Diyanet). Both directions read the same
+/// lunation table, so they are exact inverses: `toGregorian(fromGregorian(d))`
+/// is `d` for every date in range.
+///
+/// (The PHP original converts Hijri -> Gregorian with the arithmetic calendar
+/// instead, which lands a day or two off whenever the observed month start
+/// differs from the tabular one. That is a defect, not a convention, and is
+/// not reproduced here.)
+///
+/// `adjustment` shifts the result of [toGregorian] by whole days. It has no
+/// effect on [fromGregorian], as in the original.
 class TableHijriConverter implements HijriConverter {
   const TableHijriConverter({
     required this.method,
@@ -67,11 +76,13 @@ class TableHijriConverter implements HijriConverter {
   void verifyHijri(int year, int month, int day) {
     final v = _encode((year, month, day));
     if (v < _encode(hijriFrom) || v > _encode(hijriTo)) {
-      throw ArgumentError(
-        'Hijri date out of range for ${method.code} ($hijriFrom .. $hijriTo).',
-      );
+      throw _hijriOutOfRange();
     }
   }
+
+  ArgumentError _hijriOutOfRange() => ArgumentError(
+        'Hijri date out of range for ${method.code} ($hijriFrom .. $hijriTo).',
+      );
 
   @override
   HijriDate fromGregorian(DateTime date, {int adjustment = 0}) {
@@ -91,8 +102,11 @@ class TableHijriConverter implements HijriConverter {
   @override
   DateTime toGregorian(int year, int month, int day, {int adjustment = 0}) {
     verifyHijri(year, month, day);
-    final jd = JulianDayMath.hijriToJd(year, month, day, adjust: adjustment);
-    final g = JulianDayMath.jdToGregorian(jd);
+    // A month number outside 1..12 can pass the bounds check above yet point
+    // past the table.
+    final jd = JulianDayMath.tableToJd(data, lunations, year, month, day);
+    if (jd == null) throw _hijriOutOfRange();
+    final g = JulianDayMath.jdToGregorian(jd + adjustment);
     return DateTime(g.year, g.month, g.day);
   }
 }

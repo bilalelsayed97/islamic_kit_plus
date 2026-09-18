@@ -70,8 +70,8 @@ class HjcosaConverter implements HijriConverter {
       final p = gregorian.split('-');
       return DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
     }
-    final jd = JulianDayMath.hijriToJd(year, month, day, adjust: adjustment);
-    final g = JulianDayMath.jdToGregorian(jd);
-    return DateTime(g.year, g.month, g.day);
+    // No announcement for this date: the Umm al-Qura table, the same one
+    // fromGregorian falls back to.
+    return _uaq.toGregorian(year, month, day, adjustment: adjustment);
   }
 }
