@@ -4,7 +4,7 @@ description: >-
   (4 methods), qibla, calendars and an offline city geocoder (bundled 265k-place
   SQLite database). Meeus solar algorithm, an aladhan-compatible JSON model and
   English/Arabic localization.
-version: 0.3.0
+version: 0.3.1
 repository: https://github.com/bilalelsayed97/islamic_kit_plus
 issue_tracker: https://github.com/bilalelsayed97/islamic_kit_plus/issues
 

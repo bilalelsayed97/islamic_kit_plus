@@ -1,3 +1,16 @@
+## 0.3.1
+
+Tooling only — no runtime change.
+
+### Added
+- `tool/generate_native_data.dart`: emits the data files (Hijri tables,
+  holidays, sightings, city dataset, ISO maps, localization strings, the
+  `CalculationMethod` table) of the native Swift and Kotlin ports from this
+  package's constants.
+- `tool/conformance/generate.dart` and the `conformance/` fixtures: reference
+  outputs the native ports assert against (see `conformance/README.md`).
+- `.pubignore` keeps both out of the published package.
+
 ## 0.3.0
 
 Prayer times are now solved from Jean Meeus' solar position with three-day
